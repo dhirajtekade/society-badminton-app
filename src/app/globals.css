@@ -27,3 +27,17 @@ body {
   min-height: 100vh; 
   position: relative;
 }
+
+/* --- GLOBAL FIX FOR FAINT/GREY FORM TEXT --- */
+input, select, textarea {
+  color: #111827 !important; /* Force high contrast dark text */
+}
+
+input::placeholder, select option, textarea::placeholder {
+  color: #6b7280 !important; /* Make placeholders readable medium-gray */
+}
+
+select {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
