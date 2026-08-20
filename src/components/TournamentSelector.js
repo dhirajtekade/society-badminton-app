@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, addDoc, doc, setDoc } from "firebase/firestore";
-import { Trophy, Plus, Check } from "lucide-react";
+import { collection, getDocs, addDoc } from "firebase/firestore";
 
 export function useTournament() {
   const [tournaments, setTournaments] = useState([]);
@@ -25,15 +24,11 @@ export function useTournament() {
           const found = list.find(t => t.id === savedActiveId);
           setActiveTournament(found || list[0]);
         } else {
-          // Create a default tournament if none exist
-          const docRef = await addDoc(collection(db, "tournaments"), {
-            name: "Summer Championship 2026",
-            createdAt: new Date().toISOString()
-          });
-          const defaultT = { id: docRef.id, name: "Summer Championship 2026" };
-          setTournaments([defaultT]);
-          setActiveTournament(defaultT);
-          localStorage.setItem("active_tournament_id", docRef.id);
+          // NO MORE AUTO-CREATION. 
+          // If the database is empty, leave it empty until the Admin creates one.
+          setTournaments([]);
+          setActiveTournament(null);
+          localStorage.removeItem("active_tournament_id");
         }
       } catch (error) {
         console.error("Error fetching tournaments:", error);

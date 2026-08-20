@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import * as XLSX from "xlsx";
-import { db } from "@/lib/firebase"; // or "../../../lib/firebase" if you didn't fix the alias
+import { db } from "@/lib/firebase";
 import { doc, writeBatch } from "firebase/firestore";
-import { UploadCloud } from "lucide-react";
+import { UploadCloud, Trophy } from "lucide-react";
+import { useTournament } from "@/components/TournamentSelector";
 
 export default function BulkUploadPage() {
+  const { activeTournament, tournaments, switchTournament, isLoading: tLoading } = useTournament();
+  
   const [file, setFile] = useState(null);
   const [tournamentType, setTournamentType] = useState("singles");
   const [status, setStatus] = useState("");
@@ -18,6 +21,11 @@ export default function BulkUploadPage() {
       return;
     }
 
+    if (!activeTournament) {
+      setStatus("Error: No active tournament selected.");
+      return;
+    }
+
     setIsLoading(true);
     setStatus("Reading Excel/CSV file...");
 
@@ -25,25 +33,19 @@ export default function BulkUploadPage() {
     
     reader.onload = async (e) => {
       try {
-        // 1. Read the file
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: "array" });
 
-        // 2. Get the first worksheet
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-
-        // 3. Convert to JSON (similar to what PapaParse gave us)
-        // raw: false ensures things like dates/numbers come out as formatted strings
         const rows = XLSX.utils.sheet_to_json(worksheet, { raw: false });
 
-        setStatus(`Found ${rows.length} rows. Uploading to Firebase...`);
+        setStatus(`Found ${rows.length} rows. Enrolling into ${activeTournament.name}...`);
         
         const batch = writeBatch(db);
         let validPlayers = 0;
 
         rows.forEach((row) => {
-          // Find keys dynamically to ignore leading/trailing spaces in column headers
           const getVal = (possibleKeys) => {
             const key = Object.keys(row).find(k => possibleKeys.includes(k.trim().toLowerCase()));
             return key ? row[key] : "";
@@ -57,30 +59,46 @@ export default function BulkUploadPage() {
 
           if (mhtid && name) {
             const cleanMhtid = String(mhtid).trim();
-            const playerRef = doc(db, "players", cleanMhtid);
+            const cleanCategory = String(category).trim();
             
+            // 1. Save/Update Master Player Profile (The Single Source of Truth)
+            const playerRef = doc(db, "players", cleanMhtid);
             const playerData = {
               name: String(name).trim(),
               mobile: String(mobile).trim(),
-              category: String(category).trim(),
               lastYearRank: String(lastYearRank).trim(),
               updatedAt: new Date().toISOString()
             };
+
+            // SAFEGUARD: Only update the Master category if the Excel explicitly provides one.
+            // This prevents overwriting manually sorted players with blanks on re-uploads.
+            if (cleanCategory) {
+              playerData.category = cleanCategory;
+            }
 
             if (tournamentType === "singles") {
               playerData.playsSingles = true;
             } else {
               playerData.playsDoubles = true;
             }
-
             batch.set(playerRef, playerData, { merge: true });
+
+            // 2. Enroll Player into Active Tournament Roster Sub-collection
+            // NORMALIZED: Only storing enrollment data, no names or categories!
+            const enrollmentRef = doc(db, "tournaments", activeTournament.id, "players", cleanMhtid);
+            batch.set(enrollmentRef, {
+              playsSingles: tournamentType === "singles",
+              playsDoubles: tournamentType === "doubles",
+              enrolledAt: new Date().toISOString()
+            }, { merge: true });
+
             validPlayers++;
           }
         });
 
         if (validPlayers > 0) {
           await batch.commit();
-          setStatus(`Success! ${validPlayers} players registered for ${tournamentType.toUpperCase()}.`);
+          setStatus(`Success! ${validPlayers} players registered for ${tournamentType.toUpperCase()} in ${activeTournament.name}.`);
         } else {
           setStatus("No valid players found. Make sure your file has 'MHT Id' and 'Name' columns.");
         }
@@ -89,7 +107,7 @@ export default function BulkUploadPage() {
         setStatus("Error processing file. Check console.");
       } finally {
         setIsLoading(false);
-        setFile(null); // <-- ADD THIS: Clears React state
+        setFile(null); 
         document.getElementById("file-upload").value = "";
       }
     };
@@ -99,12 +117,35 @@ export default function BulkUploadPage() {
       setIsLoading(false);
     };
 
-    // Read the file as an ArrayBuffer for SheetJS
     reader.readAsArrayBuffer(file);
   };
 
+  if (tLoading) return <div className="p-10 text-center text-gray-500">Loading tournaments...</div>;
+
   return (
     <div className="max-w-xl mx-auto p-6 mt-10 bg-white rounded-lg shadow-md border">
+      
+      {/* --- ACTIVE TOURNAMENT BANNER --- */}
+      <div className="bg-indigo-900 text-white p-4 rounded-xl shadow-sm mb-6 flex justify-between items-center">
+        <div className="flex items-center gap-2.5">
+          <Trophy size={22} className="text-yellow-400" />
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-300">Enrolling Into</div>
+            <div className="text-base font-black">{activeTournament?.name}</div>
+          </div>
+        </div>
+
+        <select 
+          value={activeTournament?.id || ""} 
+          onChange={e => switchTournament(e.target.value)}
+          className="bg-indigo-800 text-white border border-indigo-700 p-2 rounded-lg text-xs font-bold outline-none cursor-pointer"
+        >
+          {tournaments.map(t => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+      </div>
+
       <h1 className="text-2xl font-bold mb-6 text-gray-800">Bulk Upload Players</h1>
       
       <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-800">
@@ -116,7 +157,7 @@ export default function BulkUploadPage() {
 
       <div className="flex flex-col gap-5">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select Tournament List:</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Tournament List Type:</label>
           <div className="flex gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <input 
@@ -145,7 +186,6 @@ export default function BulkUploadPage() {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Select File:</label>
-          {/* Updated accept attribute for Excel files */}
           <input 
             id="file-upload"
             type="file" 
@@ -161,7 +201,7 @@ export default function BulkUploadPage() {
           className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
         >
           <UploadCloud size={20} />
-          {isLoading ? "Processing..." : `Upload to ${tournamentType === 'singles' ? 'Singles' : 'Doubles'}`}
+          {isLoading ? "Processing..." : `Upload & Enroll in ${activeTournament?.name}`}
         </button>
 
         {status && (
