@@ -70,6 +70,7 @@ export default function AdminMatchesPage() {
     court: "Court 1",
     timeSlot: "",
     status: "scheduled",
+    walkover: "",
   });
 
   const [genData, setGenData] = useState({
@@ -471,6 +472,7 @@ export default function AdminMatchesPage() {
       court: "Court 1",
       timeSlot: "",
       status: "scheduled",
+      walkover: "",
     });
     setIsMatchModalOpen(true);
   };
@@ -485,6 +487,7 @@ export default function AdminMatchesPage() {
       court: match.court || "Court 1",
       timeSlot: match.timeSlot || "",
       status: match.status || "scheduled",
+      walkover: match.walkover || "",
     });
     setIsMatchModalOpen(true);
   };
