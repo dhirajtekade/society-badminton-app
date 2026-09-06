@@ -60,7 +60,7 @@ export default function AdminMatchesPage() {
   const [editingMatchId, setEditingMatchId] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const [genSummary, setGenSummary] = useState(null); // <-- NEW: Stores generation stats
+  const [genSummary, setGenSummary] = useState(null);
 
   const [formData, setFormData] = useState({
     type: "singles",
@@ -70,7 +70,7 @@ export default function AdminMatchesPage() {
     court: "Court 1",
     timeSlot: "",
     status: "scheduled",
-    walkover: "",
+    walkover: "", // <-- Walkover state field
   });
 
   const [genData, setGenData] = useState({
@@ -193,7 +193,7 @@ export default function AdminMatchesPage() {
   const executeSmartGeneration = async (e) => {
     e.preventDefault();
     setIsGenerating(true);
-    setGenSummary(null); // Clear previous summary
+    setGenSummary(null);
 
     try {
       const batch = writeBatch(db);
@@ -421,7 +421,6 @@ export default function AdminMatchesPage() {
       await batch.commit();
       setMatches((prev) => [...generatedMatches, ...prev]);
 
-      // --- NEW: UI SUMMARY OBJECT ---
       let summaryObj = {
         total: generatedMatches.length,
         details: [],
@@ -541,16 +540,6 @@ export default function AdminMatchesPage() {
   };
 
   const getPlayerName = (id) => players[id]?.name || id || "TBD";
-
-  //   const getPlayerDisplay = (id) => {
-  //     const p = players[id];
-  //     if (!p) return id || "TBD";
-  //     const name = p.name || id;
-  //     if (showCategory && p.category && p.category.toLowerCase() !== "uncategorized") {
-  //       return `${name} (${p.category})`;
-  //     }
-  //     return name;
-  //   };
 
   const getPlayerDisplay = (id) => {
     const p = players[id];
@@ -1213,9 +1202,7 @@ export default function AdminMatchesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Stage
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Stage</label>
                   <input
                     type="text"
                     value={formData.stage}
@@ -1298,9 +1285,7 @@ export default function AdminMatchesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Court
-                  </label>
+                  <label className="block text-sm font-medium mb-1">Court</label>
                   <select
                     value={formData.court}
                     onChange={(e) =>
@@ -1313,6 +1298,25 @@ export default function AdminMatchesPage() {
                     <option value="TBD">TBD</option>
                   </select>
                 </div>
+              </div>
+
+              {/* --- WALKOVER DROPDOWN IN MANUAL EDITOR --- */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-1 text-gray-700">
+                  Walkover / Remarks (Optional)
+                </label>
+                <select
+                  value={formData.walkover || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, walkover: e.target.value })
+                  }
+                  className="w-full border p-2 rounded outline-none bg-white text-sm"
+                >
+                  <option value="">None (Match played normally)</option>
+                  <option value="A">Team A Won (Team B Absent)</option>
+                  <option value="B">Team B Won (Team A Absent)</option>
+                  <option value="both">Void (Both Absent)</option>
+                </select>
               </div>
 
               <div className="flex justify-end gap-3">

@@ -184,6 +184,8 @@ export default function AdminScorerPage() {
         <div className={`text-7xl md:text-8xl font-black tracking-tighter mb-8 ${scoreClass}`}>
           {score}
         </div>
+
+        
         {/* Ergonomic thumbs: [ - ] [ + ] on left side, [ + ] [ - ] on right side */}
         <div className="flex w-full gap-2 md:gap-3">
           {isLeft ? [minusBtn, plusBtn] : [plusBtn, minusBtn]}
