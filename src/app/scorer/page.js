@@ -18,13 +18,12 @@ export default function AdminScorerPage() {
   const [scoreB, setScoreB] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [winningScore, setWinningScore] = useState(15); 
-  const [isSwapped, setIsSwapped] = useState(false); // <-- NEW: Tracks visual court sides
+  const [isSwapped, setIsSwapped] = useState(false);
 
   // Filter States
   const [filterDate, setFilterDate] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Fetch Matches and Players
   useEffect(() => {
     if (!activeTournament) return;
 
@@ -74,7 +73,7 @@ export default function AdminScorerPage() {
     setSelectedMatch(match);
     setScoreA(match?.scoreA || 0);
     setScoreB(match?.scoreB || 0);
-    setIsSwapped(false); // Reset sides when picking a new match
+    setIsSwapped(false); 
   };
 
   const updateLiveScore = async (newA, newB) => {
@@ -82,22 +81,24 @@ export default function AdminScorerPage() {
     setScoreA(newA);
     setScoreB(newB);
     
+    // FIX: Change to "in_progress" to perfectly match the Public Live View listener
+    const newStatus = (newA > 0 || newB > 0) ? "in_progress" : "scheduled";
+
     try {
       await updateDoc(doc(db, "tournaments", activeTournament.id, "matches", selectedMatch.id), {
         scoreA: newA,
         scoreB: newB,
-        status: "ongoing",
+        status: newStatus,
         updatedAt: new Date().toISOString()
       });
       
-      setMatches(prev => prev.map(m => m.id === selectedMatch.id ? { ...m, scoreA: newA, scoreB: newB, status: "ongoing" } : m));
+      setMatches(prev => prev.map(m => m.id === selectedMatch.id ? { ...m, scoreA: newA, scoreB: newB, status: newStatus } : m));
     } catch (error) {
       console.error("Failed to sync score:", error);
     }
   };
 
- const handleEndMatch = async () => {
-    // Removed the confirm() popup
+  const handleEndMatch = async () => {
     setIsSaving(true);
     
     try {
@@ -108,14 +109,11 @@ export default function AdminScorerPage() {
         completedAt: new Date().toISOString()
       });
       
-      // Removed the success alert() popup
-      
-      // Update local state and clear active scorer instantly
       setMatches(prev => prev.map(m => m.id === selectedMatch.id ? { ...m, scoreA, scoreB, status: "completed" } : m));
       setSelectedMatch(null);
     } catch (error) {
       console.error("Error finishing match:", error);
-      alert("Failed to save completed match."); // Keeping error alert just in case of network failure
+      alert("Failed to save completed match."); 
     } finally {
       setIsSaving(false);
     }
@@ -123,7 +121,6 @@ export default function AdminScorerPage() {
 
   const getPlayerDisplay = (id) => players[id]?.name || id || "TBD";
 
-  // Filter Logic
   const pendingMatches = matches.filter(m => m.status !== "completed");
   
   const uniqueDates = [...new Set(pendingMatches.map(m => {
@@ -143,14 +140,11 @@ export default function AdminScorerPage() {
     return passesDate && passesSearch;
   });
 
-  // --- DYNAMIC SCORING PANEL RENDERER ---
-  // This helper builds the UI for a team so we can easily swap them!
   const renderTeamPanel = (teamType, isLeft) => {
     const isTeamA = teamType === 'A';
     const teamIds = isTeamA ? selectedMatch.teamA : selectedMatch.teamB;
     const score = isTeamA ? scoreA : scoreB;
     
-    // Style configurations based on Team A (Blue) vs Team B (Red)
     const bgClass = isTeamA ? 'bg-blue-50/30' : 'bg-red-50/30';
     const textClass = isTeamA ? 'text-blue-900' : 'text-red-900';
     const scoreClass = isTeamA ? 'text-blue-600' : 'text-red-600';
@@ -184,9 +178,6 @@ export default function AdminScorerPage() {
         <div className={`text-7xl md:text-8xl font-black tracking-tighter mb-8 ${scoreClass}`}>
           {score}
         </div>
-
-        
-        {/* Ergonomic thumbs: [ - ] [ + ] on left side, [ + ] [ - ] on right side */}
         <div className="flex w-full gap-2 md:gap-3">
           {isLeft ? [minusBtn, plusBtn] : [plusBtn, minusBtn]}
         </div>
@@ -197,9 +188,8 @@ export default function AdminScorerPage() {
   if (tLoading) return <div className="p-10 text-center text-gray-500">Loading scorer...</div>;
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 mt-6">
+    <div className="max-w-4xl mx-auto p-4 md:p-6 mt-6 pb-24">
       
-      {/* --- HEADER --- */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-indigo-900 text-white p-4 rounded-xl shadow-md">
         <div className="flex items-center gap-3">
           <MonitorPlay size={28} className="text-yellow-400" />
@@ -222,7 +212,6 @@ export default function AdminScorerPage() {
       ) : (
         <div className="space-y-6">
           
-          {/* --- MATCH SELECTOR & FILTERS --- */}
           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
             <div className="flex flex-col md:flex-row gap-4 mb-4">
               <div className="flex-1 relative">
@@ -266,23 +255,19 @@ export default function AdminScorerPage() {
             )}
           </div>
 
-          {/* --- SCORING INTERFACE --- */}
           {selectedMatch && (
             <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
               
-              {/* Match Info Bar */}
               <div className="bg-gray-50 border-b border-gray-200 p-4 flex justify-between items-center flex-wrap gap-3">
                 <div>
                   <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded uppercase tracking-wider">{selectedMatch.stage}</span>
                 </div>
                 
-                {/* Visual Swap Button */}
                 <button 
                   onClick={() => setIsSwapped(!isSwapped)}
                   className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:bg-gray-100 active:scale-95 transition-all"
                 >
-                  <ArrowLeftRight size={14} />
-                  Swap Sides
+                  <ArrowLeftRight size={14} /> Swap Sides
                 </button>
 
                 <div className="flex items-center gap-2">
@@ -299,20 +284,36 @@ export default function AdminScorerPage() {
                 </div>
               </div>
 
-              {/* Score Boards - DYNAMICALLY RENDERED */}
               <div className="flex divide-x divide-gray-200">
                 {isSwapped ? renderTeamPanel('B', true) : renderTeamPanel('A', true)}
                 {isSwapped ? renderTeamPanel('A', false) : renderTeamPanel('B', false)}
               </div>
 
-              {/* Game Point Warning */}
               {(scoreA >= winningScore - 1 || scoreB >= winningScore - 1) && (
                 <div className="bg-yellow-50 text-yellow-800 p-3 text-center text-sm font-bold flex items-center justify-center gap-2 border-t border-yellow-200 animate-pulse">
                   <AlertCircle size={18} /> Match Point!
                 </div>
               )}
 
-              {/* Action Bar */}
+              {/* --- SMART SERVER & COURT SIDE INDICATOR --- */}
+              <div className="bg-indigo-50 border-t border-indigo-100 p-3 text-center text-xs md:text-sm font-bold text-indigo-900 flex items-center justify-center gap-2">
+                <span className="bg-indigo-600 text-white text-[10px] uppercase px-2 py-0.5 rounded tracking-wider">Server Note</span>
+                <span>
+                  {(() => {
+                    const totalPoints = scoreA + scoreB;
+                    const servingTeamIsA = totalPoints % 2 === 0;
+                    const servingTeamScore = servingTeamIsA ? scoreA : scoreB;
+                    const serviceSide = servingTeamScore % 2 === 0 ? "RIGHT (Even) Side ➔" : "← LEFT (Odd) Side";
+                    
+                    const teamNames = servingTeamIsA 
+                      ? selectedMatch.teamA.map(id => getPlayerDisplay(id)).join(" & ")
+                      : selectedMatch.teamB.map(id => getPlayerDisplay(id)).join(" & ");
+
+                    return `Serving Team: ${teamNames} | Serve from the ${serviceSide}`;
+                  })()}
+                </span>
+              </div>
+
               <div className="bg-gray-800 p-4 flex justify-between items-center">
                 <div className="text-gray-400 text-xs font-bold flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
