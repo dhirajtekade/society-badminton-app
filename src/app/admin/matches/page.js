@@ -70,7 +70,7 @@ export default function AdminMatchesPage() {
     court: "Court 1",
     timeSlot: "",
     status: "scheduled",
-    walkover: "", // <-- Walkover state field
+    walkover: "",
   });
 
   const [genData, setGenData] = useState({
@@ -120,6 +120,7 @@ export default function AdminMatchesPage() {
             name: mData.name || tData.name || "Unknown",
             category: mData.category || "Uncategorized",
             availability: mData.availability || [],
+            partnerMhtId: tData.partnerMhtId || null, // Fetch partner MHT ID
           };
 
           playersDict[doc.id] = mergedData;
@@ -208,6 +209,7 @@ export default function AdminMatchesPage() {
         genData.priority2,
         genData.priority3,
       ];
+
       const rules = {
         sameCategory: allPriorities.includes("cat_same"),
         crossCategory: allPriorities.includes("cat_cross"),
@@ -215,27 +217,72 @@ export default function AdminMatchesPage() {
           allPriorities.includes("avail_strict") ||
           allPriorities.includes("avail_loose"),
         strictAvail: allPriorities.includes("avail_strict"),
+        fixedPartner: allPriorities.includes("fixed_partner"), // New Priority Check
       };
 
       const activePlayers = playersList.filter((p) =>
         genData.type === "singles" ? p.playsSingles : p.playsDoubles,
       );
+
+      // --- TEAM FORMATION ENGINE ---
+      // Groups players into logical "Teams" (Array of 1 for singles, Array of 2 for doubles)
+      let teams = [];
+      if (genData.type === "doubles") {
+        let pairedIds = new Set();
+
+        if (rules.fixedPartner) {
+          activePlayers.forEach((p1) => {
+            if (pairedIds.has(p1.id) || !p1.partnerMhtId) return;
+            const p2 = activePlayers.find(
+              (p) => p.id === p1.partnerMhtId && !pairedIds.has(p.id),
+            );
+            if (p2) {
+              teams.push([p1, p2]);
+              pairedIds.add(p1.id);
+              pairedIds.add(p2.id);
+            }
+          });
+        }
+
+        // Randomly pair remaining players
+        const remaining = activePlayers
+          .filter((p) => !pairedIds.has(p.id))
+          .sort(() => Math.random() - 0.5);
+
+        for (let i = 0; i < remaining.length; i += 2) {
+          if (remaining[i + 1]) {
+            teams.push([remaining[i], remaining[i + 1]]);
+          } else {
+            teams.push([remaining[i]]); // Fallback for odd player out
+          }
+        }
+      } else {
+        teams = activePlayers.map((p) => [p]); // Singles teams
+      }
+
       const pairs = [];
       const matchCounts = {};
-
       activePlayers.forEach((p) => (matchCounts[p.id] = 0));
 
-      const tryAddPair = (p1, p2, stageName) => {
-        if (matchCounts[p1.id] < maxLimit && matchCounts[p2.id] < maxLimit) {
+      const tryAddPair = (t1, t2, stageName) => {
+        const t1Ids = t1.map((p) => p.id);
+        const t2Ids = t2.map((p) => p.id);
+
+        if (
+          t1Ids.every((id) => matchCounts[id] < maxLimit) &&
+          t2Ids.every((id) => matchCounts[id] < maxLimit)
+        ) {
           const exists = pairs.some(
             (m) =>
-              (m.p1.id === p1.id && m.p2.id === p2.id) ||
-              (m.p1.id === p2.id && m.p2.id === p1.id),
+              (m.t1.map((p) => p.id).join() === t1Ids.join() &&
+                m.t2.map((p) => p.id).join() === t2Ids.join()) ||
+              (m.t1.map((p) => p.id).join() === t2Ids.join() &&
+                m.t2.map((p) => p.id).join() === t1Ids.join()),
           );
           if (!exists) {
-            pairs.push({ p1, p2, stage: stageName });
-            matchCounts[p1.id]++;
-            matchCounts[p2.id]++;
+            pairs.push({ t1, t2, stage: stageName });
+            t1Ids.forEach((id) => matchCounts[id]++);
+            t2Ids.forEach((id) => matchCounts[id]++);
             return true;
           }
         }
@@ -245,29 +292,28 @@ export default function AdminMatchesPage() {
       if (rules.sameCategory) {
         const uniqueCategories = [
           ...new Set(
-            activePlayers.map((p) => p.category?.trim() || "Uncategorized"),
+            teams.map((t) => t[0].category?.trim() || "Uncategorized"),
           ),
         ];
 
         uniqueCategories.forEach((catName) => {
-          const catPlayers = activePlayers.filter(
-            (p) => (p.category?.trim() || "Uncategorized") === catName,
+          const catTeams = teams.filter(
+            (t) => (t[0].category?.trim() || "Uncategorized") === catName,
           );
 
-          for (let i = 0; i < catPlayers.length; i++) {
-            for (let offset = 1; offset < catPlayers.length; offset++) {
-              const j = (i + offset) % catPlayers.length;
+          for (let i = 0; i < catTeams.length; i++) {
+            for (let offset = 1; offset < catTeams.length; offset++) {
+              const j = (i + offset) % catTeams.length;
               if (i !== j)
-                tryAddPair(catPlayers[i], catPlayers[j], `League: ${catName}`);
+                tryAddPair(catTeams[i], catTeams[j], `League: ${catName}`);
             }
           }
         });
       } else {
-        for (let i = 0; i < activePlayers.length; i++) {
-          for (let offset = 1; offset < activePlayers.length; offset++) {
-            const j = (i + offset) % activePlayers.length;
-            if (i !== j)
-              tryAddPair(activePlayers[i], activePlayers[j], "General League");
+        for (let i = 0; i < teams.length; i++) {
+          for (let offset = 1; offset < teams.length; offset++) {
+            const j = (i + offset) % teams.length;
+            if (i !== j) tryAddPair(teams[i], teams[j], "General League");
           }
         }
       }
@@ -332,30 +378,36 @@ export default function AdminMatchesPage() {
         for (const key of slotKeys) {
           const slot = slotTracker[key];
 
-          const p1Last = playerLastSlotIndex[pair.p1.id] ?? -99;
-          const p2Last = playerLastSlotIndex[pair.p2.id] ?? -99;
+          const getTeamLastSlot = (team) =>
+            Math.max(...team.map((p) => playerLastSlotIndex[p.id] ?? -99));
+
+          const t1Last = getTeamLastSlot(pair.t1);
+          const t2Last = getTeamLastSlot(pair.t2);
           const currentIdx = slot.slotIndex;
 
-          if (currentIdx - p1Last < 2 || currentIdx - p2Last < 2) continue;
+          if (currentIdx - t1Last < 2 || currentIdx - t2Last < 2) continue;
 
-          const p1Avail =
-            pair.p1.availability &&
-            Array.isArray(pair.p1.availability) &&
-            pair.p1.availability.length > 0
-              ? pair.p1.availability
-              : allParentBlockIds;
+          const getTeamAvail = (team) => {
+            let avail = allParentBlockIds;
+            team.forEach((p) => {
+              if (
+                p.availability &&
+                Array.isArray(p.availability) &&
+                p.availability.length > 0
+              ) {
+                avail = avail.filter((a) => p.availability.includes(a));
+              }
+            });
+            return avail;
+          };
 
-          const p2Avail =
-            pair.p2.availability &&
-            Array.isArray(pair.p2.availability) &&
-            pair.p2.availability.length > 0
-              ? pair.p2.availability
-              : allParentBlockIds;
+          const t1Avail = getTeamAvail(pair.t1);
+          const t2Avail = getTeamAvail(pair.t2);
 
           const hasAvailability =
             !rules.checkAvail ||
-            (p1Avail.includes(slot.parentBlockId) &&
-              p2Avail.includes(slot.parentBlockId));
+            (t1Avail.includes(slot.parentBlockId) &&
+              t2Avail.includes(slot.parentBlockId));
 
           if (hasAvailability || !rules.checkAvail) {
             let assignedCourtName = null;
@@ -373,8 +425,8 @@ export default function AdminMatchesPage() {
               finalTimeSlot = slot.label;
               status = "scheduled";
               scheduleSuccess = true;
-              playerLastSlotIndex[pair.p1.id] = currentIdx;
-              playerLastSlotIndex[pair.p2.id] = currentIdx;
+              pair.t1.forEach((p) => (playerLastSlotIndex[p.id] = currentIdx));
+              pair.t2.forEach((p) => (playerLastSlotIndex[p.id] = currentIdx));
               break;
             }
           }
@@ -403,8 +455,8 @@ export default function AdminMatchesPage() {
         const matchData = {
           type: genData.type,
           stage: pair.stage,
-          teamA: [pair.p1.id],
-          teamB: [pair.p2.id],
+          teamA: pair.t1.map((p) => p.id),
+          teamB: pair.t2.map((p) => p.id),
           court: finalCourt,
           timeSlot: finalTimeSlot,
           status: status,
@@ -429,7 +481,7 @@ export default function AdminMatchesPage() {
       if (rules.sameCategory) {
         const uniqueCategories = [
           ...new Set(
-            activePlayers.map((p) => p.category?.trim() || "Uncategorized"),
+            teams.map((t) => t[0].category?.trim() || "Uncategorized"),
           ),
         ];
         uniqueCategories.forEach((cat) => {
@@ -631,6 +683,7 @@ export default function AdminMatchesPage() {
 
   const ruleOptions = [
     { value: "none", label: "-- Ignore / Not Required --" },
+    { value: "fixed_partner", label: "Predefined Partner (Excel Import)" },
     { value: "cat_same", label: "Group by Category (Play within own tag)" },
     { value: "cat_cross", label: "Cross-Category (Play outside own tag)" },
     {
@@ -1074,6 +1127,7 @@ export default function AdminMatchesPage() {
                   <label className="block text-xs font-bold text-indigo-600 uppercase mb-1">
                     Priority 1
                   </label>
+
                   <select
                     value={genData.priority1}
                     onChange={(e) =>
@@ -1202,7 +1256,9 @@ export default function AdminMatchesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Stage</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Stage
+                  </label>
                   <input
                     type="text"
                     value={formData.stage}
@@ -1285,7 +1341,9 @@ export default function AdminMatchesPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Court</label>
+                  <label className="block text-sm font-medium mb-1">
+                    Court
+                  </label>
                   <select
                     value={formData.court}
                     onChange={(e) =>

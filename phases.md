@@ -67,3 +67,4 @@ we should drag and drop few matches from other date to current date ( this might
 ---
 - sometime in doubles partner can be fixed
 - players logs in with mhtid to see profile, their matches ranking etc. option to set availability. 
+- export sample singles and doubles excel in order to understand what format is needed
