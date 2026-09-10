@@ -4,7 +4,7 @@ import { useState } from "react";
 import * as XLSX from "xlsx";
 import { db } from "@/lib/firebase";
 import { doc, writeBatch } from "firebase/firestore";
-import { UploadCloud, Trophy } from "lucide-react";
+import { UploadCloud, Trophy, Download } from "lucide-react"; // NEW: Added Download icon
 import { useTournament } from "@/components/TournamentSelector";
 
 export default function BulkUploadPage() {
@@ -19,6 +19,53 @@ export default function BulkUploadPage() {
   const [tournamentType, setTournamentType] = useState("singles");
   const [status, setStatus] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // --- NEW: Generate and Download Sample Excel File ---
+  const handleDownloadSample = () => {
+    const sampleData = [
+      {
+        "MHT Id": "MHT001",
+        Name: "John Doe",
+        Mobile: "9876543210",
+        Category: "Advanced",
+        "Last Year Rank": 5,
+        "Partner MHT ID": "",
+      },
+      {
+        "MHT Id": "MHT002",
+        Name: "Jane Smith",
+        Mobile: "9123456780",
+        Category: "Beginner",
+        "Last Year Rank": "",
+        "Partner MHT ID": "MHT003",
+      },
+      {
+        "MHT Id": "MHT003",
+        Name: "Alice Johnson",
+        Mobile: "9988776655",
+        Category: "Beginner",
+        "Last Year Rank": "",
+        "Partner MHT ID": "MHT002",
+      },
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sample Format");
+
+    // Optional: Adjust column widths to make it look nice
+    const columnWidths = [
+      { wch: 15 }, // MHT Id
+      { wch: 20 }, // Name
+      { wch: 15 }, // Mobile
+      { wch: 15 }, // Category
+      { wch: 15 }, // Last Year Rank
+      { wch: 20 }, // Partner MHT ID
+    ];
+    worksheet["!cols"] = columnWidths;
+
+    XLSX.writeFile(workbook, "Sample_Player_Upload.xlsx");
+  };
 
   const handleUpload = async () => {
     if (!file) {
@@ -65,7 +112,6 @@ export default function BulkUploadPage() {
           const mobile = getVal(["mobile"]);
           const category = getVal(["category"]);
           const lastYearRank = getVal(["lastyearrank", "last year rank"]);
-          // NEW: Capture the fixed partner MHT ID from the sheet
           const partnerMhtId = getVal([
             "partner mhtid",
             "partner mht id",
@@ -108,7 +154,6 @@ export default function BulkUploadPage() {
               {
                 playsSingles: tournamentType === "singles",
                 playsDoubles: tournamentType === "doubles",
-                // NEW: Save the requested partner scoped to this specific tournament
                 partnerMhtId: partnerMhtId ? String(partnerMhtId).trim() : null,
                 enrolledAt: new Date().toISOString(),
               },
@@ -184,17 +229,29 @@ export default function BulkUploadPage() {
         Bulk Upload Players
       </h1>
 
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-800">
-        <p className="font-semibold mb-2">File Requirements:</p>
-        <p>
-          Upload a <strong>.csv</strong> or <strong>.xlsx</strong> (Excel) file.
-        </p>
-        <p>
-          Ensure your header row includes: <strong>MHT Id, Name</strong>
-        </p>
-        <p className="mt-1">
-          Optional headers: <strong>Mobile, Category, Partner MHT ID</strong>
-        </p>
+      {/* --- REVISED INFORMATION BOX WITH DOWNLOAD BUTTON --- */}
+      <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-md text-sm text-blue-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <p className="font-semibold mb-2">File Requirements:</p>
+          <p>
+            Upload a <strong>.csv</strong> or <strong>.xlsx</strong> (Excel)
+            file.
+          </p>
+          <p>
+            Ensure your header row includes: <strong>MHT Id, Name</strong>
+          </p>
+          <p className="mt-1">
+            Optional headers:{" "}
+            <strong>Mobile, Category, Last Year Rank, Partner MHT ID</strong>
+          </p>
+        </div>
+        <button
+          onClick={handleDownloadSample}
+          className="flex items-center gap-2 bg-blue-200 hover:bg-blue-300 text-blue-900 font-bold py-2 px-4 rounded-lg text-xs transition-colors shrink-0 shadow-sm"
+        >
+          <Download size={16} />
+          Download Sample
+        </button>
       </div>
 
       <div className="flex flex-col gap-5">

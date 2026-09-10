@@ -24,11 +24,11 @@ export default function AdminLayout({ children }) {
 
   // Define our navigation links based on what we've built (and what's coming)
   const navLinks = [
+    { name: "Global Settings", href: "/admin/settings", icon: Settings },
+    { name: "Bulk Upload", href: "/admin/upload", icon: UploadCloud },
     { name: "Match Schedule", href: "/admin/matches", icon: CalendarDays },
     { name: "Player Directory", href: "/admin/players", icon: Users },
     { name: "Category Sorter", href: "/admin/categories", icon: Layout }, // <-- CHANGED HERE
-    { name: "Bulk Upload", href: "/admin/upload", icon: UploadCloud },
-    { name: "Global Settings", href: "/admin/settings", icon: Settings },
     { name: "Live Scorer", href: "/scorer", icon: MonitorPlay, external: true },
     { name: "Match Ledger", href: "/admin/ledger", icon: ListOrdered },
     { name: "Leaderboard", href: "/admin/leaderboard", icon: BarChart3 },
