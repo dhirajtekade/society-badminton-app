@@ -71,7 +71,7 @@ export default function AdminLayout({ children }) {
         <div className="h-16 flex items-center justify-between px-6 border-b border-gray-100 bg-indigo-900 text-white md:bg-white md:text-indigo-900">
           <div className="flex items-center gap-2 font-black text-lg tracking-tight">
             <Trophy size={24} className="text-yellow-400 md:text-indigo-600" />
-            <span className="hidden md:block">CourtAdmin</span>
+            <span className="hidden md:block">BadmintonMagic</span>
             <span className="md:hidden">Menu</span>
           </div>
           {/* Close button only visible on mobile */}

@@ -1039,26 +1039,43 @@ export default function AdminMatchesPage() {
 
   const getPlayerName = (id) => players[id]?.name || id || "TBD";
 
-  const getPlayerDisplay = (id) => {
+  const getPlayerDisplay = (id, match) => {
     const p = players[id];
-    if (!p) return <span className="text-gray-500 italic">{id || "TBD"}</span>;
-    const name = p.name || id;
+    const rsvp = match?.rsvps?.[id] || "pending";
 
-    if (
-      showCategory &&
-      p.category &&
-      p.category.toLowerCase() !== "uncategorized"
-    ) {
+    let dotColor = "bg-yellow-400";
+    if (rsvp === "available") dotColor = "bg-emerald-500";
+    if (rsvp === "unavailable") dotColor = "bg-red-500";
+
+    if (!p)
       return (
-        <span className="flex items-center gap-2">
-          <span className="font-semibold text-gray-800">{name}</span>
-          <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded">
-            {p.category}
-          </span>
+        <span className="flex items-center gap-1.5">
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`}
+            title="Pending"
+          ></span>
+          <span className="text-gray-500 italic">{id || "TBD"}</span>
         </span>
       );
-    }
-    return <span className="font-semibold text-gray-800">{name}</span>;
+
+    const name = p.name || id;
+
+    return (
+      <span className="flex items-center gap-1.5 overflow-hidden">
+        <span
+          className={`w-2 h-2 rounded-full shrink-0 ${dotColor}`}
+          title={rsvp}
+        ></span>
+        <span className="font-semibold text-gray-800 truncate">{name}</span>
+        {showCategory &&
+          p.category &&
+          p.category.toLowerCase() !== "uncategorized" && (
+            <span className="bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0">
+              {p.category}
+            </span>
+          )}
+      </span>
+    );
   };
 
   const filteredAndSortedMatches = [...enrichedMatchesList]
@@ -1122,8 +1139,8 @@ export default function AdminMatchesPage() {
     Object.entries(groupedMatches).forEach(([groupTitle, groupMatches]) => {
       text += `🏆 *${groupTitle.toUpperCase()}*\n`;
       groupMatches.forEach((m, idx) => {
-        const p1 = m.teamA.map((id) => getPlayerDisplay(id)).join(" & ");
-        const p2 = m.teamB.map((id) => getPlayerDisplay(id)).join(" & ");
+        const p1 = m.teamA.map((id) => getPlayerName(id)).join(" & ");
+        const p2 = m.teamB.map((id) => getPlayerName(id)).join(" & ");
         text += `  ${idx + 1}. ⚔️ ${p1} vs ${p2} | 🕒 ${m.computedStartTime}\n`;
       });
       text += `\n`;
@@ -1606,7 +1623,9 @@ export default function AdminMatchesPage() {
                               >
                                 <td className="p-4 font-semibold text-gray-800">
                                   {match.teamA.map((id, idx) => (
-                                    <div key={idx}>{getPlayerDisplay(id)}</div>
+                                    <div key={idx}>
+                                      {getPlayerDisplay(id, match)}
+                                    </div>
                                   ))}
                                 </td>
                                 <td className="p-4 text-center font-bold text-gray-300">
@@ -1614,7 +1633,9 @@ export default function AdminMatchesPage() {
                                 </td>
                                 <td className="p-4 font-semibold text-gray-800">
                                   {match.teamB.map((id, idx) => (
-                                    <div key={idx}>{getPlayerDisplay(id)}</div>
+                                    <div key={idx}>
+                                      {getPlayerDisplay(id, match)}
+                                    </div>
                                   ))}
                                 </td>
                                 <td className="p-4 text-gray-600 font-medium whitespace-nowrap">
@@ -1997,8 +2018,28 @@ export default function AdminMatchesPage() {
                                           >
                                             {playerId ? (
                                               <>
-                                                <span className="font-bold text-sm text-gray-800 truncate">
-                                                  {getPlayerName(playerId)}
+                                                <span className="flex items-center gap-1.5 overflow-hidden">
+                                                  <span
+                                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                                      matchInSlot?.rsvps?.[
+                                                        playerId
+                                                      ] === "available"
+                                                        ? "bg-emerald-500"
+                                                        : matchInSlot?.rsvps?.[
+                                                              playerId
+                                                            ] === "unavailable"
+                                                          ? "bg-red-500"
+                                                          : "bg-yellow-400"
+                                                    }`}
+                                                    title={
+                                                      matchInSlot?.rsvps?.[
+                                                        playerId
+                                                      ] || "Pending"
+                                                    }
+                                                  ></span>
+                                                  <span className="font-bold text-sm text-gray-800 truncate">
+                                                    {getPlayerName(playerId)}
+                                                  </span>
                                                 </span>
                                                 <button
                                                   onClick={() =>
@@ -2062,8 +2103,28 @@ export default function AdminMatchesPage() {
                                           >
                                             {playerId ? (
                                               <>
-                                                <span className="font-bold text-sm text-gray-800 truncate">
-                                                  {getPlayerName(playerId)}
+                                                <span className="flex items-center gap-1.5 overflow-hidden">
+                                                  <span
+                                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                                      matchInSlot?.rsvps?.[
+                                                        playerId
+                                                      ] === "available"
+                                                        ? "bg-emerald-500"
+                                                        : matchInSlot?.rsvps?.[
+                                                              playerId
+                                                            ] === "unavailable"
+                                                          ? "bg-red-500"
+                                                          : "bg-yellow-400"
+                                                    }`}
+                                                    title={
+                                                      matchInSlot?.rsvps?.[
+                                                        playerId
+                                                      ] || "Pending"
+                                                    }
+                                                  ></span>
+                                                  <span className="font-bold text-sm text-gray-800 truncate">
+                                                    {getPlayerName(playerId)}
+                                                  </span>
                                                 </span>
                                                 <button
                                                   onClick={() =>
