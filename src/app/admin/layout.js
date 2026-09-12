@@ -16,6 +16,7 @@ import {
   ListOrdered,
   BarChart3,
   Network,
+  FileSpreadsheet,
 } from "lucide-react";
 
 export default function AdminLayout({ children }) {
@@ -27,12 +28,22 @@ export default function AdminLayout({ children }) {
     { name: "Global Settings", href: "/admin/settings", icon: Settings },
     { name: "Bulk Upload", href: "/admin/upload", icon: UploadCloud },
     { name: "Match Schedule", href: "/admin/matches", icon: CalendarDays },
+    {
+      name: "Import Matches scores",
+      href: "/admin/import-matches",
+      icon: UploadCloud,
+    },
     { name: "Player Directory", href: "/admin/players", icon: Users },
     { name: "Category Sorter", href: "/admin/categories", icon: Layout }, // <-- CHANGED HERE
     { name: "Live Scorer", href: "/scorer", icon: MonitorPlay, external: true },
     { name: "Match Ledger", href: "/admin/ledger", icon: ListOrdered },
     { name: "Leaderboard", href: "/admin/leaderboard", icon: BarChart3 },
     { name: "Knockouts", href: "/admin/brackets", icon: Network },
+    // {
+    //   name: "Bulk Upload Papaparse",
+    //   href: "/admin/bulk-upload",
+    //   icon: "Users",
+    // },
   ];
 
   return (
