@@ -83,3 +83,27 @@ what will happen if i click on re-seed
 15-6,14-16,6-15
 ---
 on home page/pubic page refresh and link to final stage match as well
+
+---
+
+oh i like this Papaparse a lot.
+
+can you also use it in our bulk excel/csv upload of singles or doubles match
+-------------------
+new pages:
+bulk-upload
+import-matches
+---------------
+delete recent csv import ( tournament )
+-------------
+complete 2.0 tournament and note ranks.
+and check if it carryforwards in next tournament
+----
+show knockstage to public but removing re-seed button , push ready matches.
+what will happen if i click on re-seed
+
+9-15,8-15
+8-15,8-15
+15-6,14-16,6-15
+---
+on home page/pubic page refresh and link to final stage match as well
