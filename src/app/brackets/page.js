@@ -243,7 +243,7 @@ export default function PublicBracketsPage() {
               })}
             </div>
 
-            {/* COLUMN 3: SEMI-FINALS */}
+           {/* COLUMN 3: SEMI-FINALS */}
             <div className="space-y-36">
               <div className="bg-indigo-100 text-indigo-900 border border-indigo-200 font-black text-xs uppercase p-2.5 rounded-lg text-center">
                 Semi Final
@@ -272,7 +272,7 @@ export default function PublicBracketsPage() {
                 return (
                   <div
                     key={num}
-                    className="bg-indigo-50/60 border border-indigo-200 rounded-lg p-3 shadow-sm text-xs font-semibold"
+                    className="bg-indigo-50/60 border border-indigo-200 rounded-lg p-3 shadow-sm text-xs font-semibold min-w-[200px]"
                   >
                     <div className="text-[10px] font-black text-indigo-700 uppercase mb-1 flex justify-between">
                       <span>Semi {num}</span>
@@ -280,17 +280,33 @@ export default function PublicBracketsPage() {
                         <span className="text-green-600">Final</span>
                       )}
                     </div>
+                    
+                    {/* Team A */}
                     <div
                       className={`flex justify-between items-center py-1.5 px-2 rounded ${p1Win ? "bg-indigo-200 font-black text-gray-900" : "text-gray-700"}`}
                     >
-                      <span className="truncate">{autoP1}</span>
-                      <span className="font-mono">{match?.scoreA ?? "-"}</span>
+                      <span className="truncate pr-2">{autoP1}</span>
+                      {match?.sets && match.sets.length > 0 ? (
+                        <div className="flex gap-1.5 font-mono text-[10px]">
+                          {match.sets.map(s => <span key={s.set} className="bg-white/60 px-1 rounded">{s.scoreA}</span>)}
+                        </div>
+                      ) : (
+                        <span className="font-mono">{match?.scoreA ?? "-"}</span>
+                      )}
                     </div>
+
+                    {/* Team B */}
                     <div
                       className={`flex justify-between items-center py-1.5 px-2 rounded mt-1 ${p2Win ? "bg-indigo-200 font-black text-gray-900" : "text-gray-700"}`}
                     >
-                      <span className="truncate">{autoP2}</span>
-                      <span className="font-mono">{match?.scoreB ?? "-"}</span>
+                      <span className="truncate pr-2">{autoP2}</span>
+                      {match?.sets && match.sets.length > 0 ? (
+                        <div className="flex gap-1.5 font-mono text-[10px]">
+                          {match.sets.map(s => <span key={s.set} className="bg-white/60 px-1 rounded">{s.scoreB}</span>)}
+                        </div>
+                      ) : (
+                        <span className="font-mono">{match?.scoreB ?? "-"}</span>
+                      )}
                     </div>
                   </div>
                 );
@@ -324,7 +340,7 @@ export default function PublicBracketsPage() {
                   : getWinner(sf2)?.name || "Winner Semi 2";
 
                 return (
-                  <div className="bg-amber-50/80 border-2 border-amber-300 rounded-xl p-4 shadow-md text-xs font-semibold">
+                  <div className="bg-amber-50/80 border-2 border-amber-300 rounded-xl p-4 shadow-md text-xs font-semibold min-w-[220px]">
                     <div className="text-xs font-black text-amber-800 uppercase mb-2 flex items-center justify-between">
                       <span className="flex items-center gap-1.5">
                         <Trophy size={16} className="text-amber-600" /> FINAL
@@ -335,17 +351,33 @@ export default function PublicBracketsPage() {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Team A */}
                     <div
                       className={`flex justify-between items-center py-2 px-2.5 rounded ${p1Win ? "bg-amber-200 font-black text-gray-900 text-sm" : "text-gray-800"}`}
                     >
-                      <span className="truncate">{autoP1}</span>
-                      <span className="font-mono">{match?.scoreA ?? "-"}</span>
+                      <span className="truncate pr-2">{autoP1}</span>
+                      {match?.sets && match.sets.length > 0 ? (
+                        <div className="flex gap-1.5 font-mono text-[10px]">
+                          {match.sets.map(s => <span key={s.set} className="bg-white/60 px-1 rounded">{s.scoreA}</span>)}
+                        </div>
+                      ) : (
+                        <span className="font-mono">{match?.scoreA ?? "-"}</span>
+                      )}
                     </div>
+
+                    {/* Team B */}
                     <div
                       className={`flex justify-between items-center py-2 px-2.5 rounded mt-1.5 ${p2Win ? "bg-amber-200 font-black text-gray-900 text-sm" : "text-gray-800"}`}
                     >
-                      <span className="truncate">{autoP2}</span>
-                      <span className="font-mono">{match?.scoreB ?? "-"}</span>
+                      <span className="truncate pr-2">{autoP2}</span>
+                      {match?.sets && match.sets.length > 0 ? (
+                        <div className="flex gap-1.5 font-mono text-[10px]">
+                          {match.sets.map(s => <span key={s.set} className="bg-white/60 px-1 rounded">{s.scoreB}</span>)}
+                        </div>
+                      ) : (
+                        <span className="font-mono">{match?.scoreB ?? "-"}</span>
+                      )}
                     </div>
                   </div>
                 );

@@ -39,10 +39,11 @@ export default function AdminScorerPage() {
   const [isSwapped, setIsSwapped] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // --- NEW: Best of 3 Set Tracking ---
+  // --- Multi-Set State ---
   const [isBestOfThree, setIsBestOfThree] = useState(false);
   const [setsWonA, setSetsWonA] = useState(0);
   const [setsWonB, setSetsWonB] = useState(0);
+  const [completedSets, setCompletedSets] = useState([]); // Stores [{set: 1, scoreA: 15, scoreB: 10}, ...]
 
   // Filter States
   const [filterDate, setFilterDate] = useState("all");
@@ -102,23 +103,16 @@ export default function AdminScorerPage() {
     const match = matches.find((m) => m.id === matchId);
     setSelectedMatch(match);
 
-    // Auto-detect Best of 3 for Semis and Finals
     const stage = (match.stage || "").toLowerCase();
     const shouldBeBestOf3 = stage.includes("semi") || stage.includes("final");
     setIsBestOfThree(shouldBeBestOf3);
 
-    setSetsWonA(0);
-    setSetsWonB(0);
+    setSetsWonA(match?.scoreA || 0);
+    setSetsWonB(match?.scoreB || 0);
+    setCompletedSets(match?.sets || []);
 
-    // Only load existing scores if it's NOT a best-of-3 (since Best of 3 relies on Sets)
-    if (!shouldBeBestOf3) {
-      setScoreA(match?.scoreA || 0);
-      setScoreB(match?.scoreB || 0);
-    } else {
-      setScoreA(0);
-      setScoreB(0);
-    }
-
+    setScoreA(0);
+    setScoreB(0);
     setIsSwapped(false);
   };
 
@@ -127,13 +121,21 @@ export default function AdminScorerPage() {
     setScoreA(newA);
     setScoreB(newB);
 
-    const newStatus = newA > 0 || newB > 0 ? "in_progress" : "scheduled";
+    const newStatus =
+      newA > 0 || newB > 0 || completedSets.length > 0
+        ? "in_progress"
+        : "scheduled";
 
     try {
-      // If it's a Best of 3, we don't save the raw points to Firebase to avoid confusing the bracket logic.
-      // We only update status to show it is live.
       const payload = isBestOfThree
-        ? { status: newStatus, updatedAt: new Date().toISOString() }
+        ? {
+            status: newStatus,
+            sets: [
+              ...completedSets,
+              { set: completedSets.length + 1, scoreA: newA, scoreB: newB },
+            ],
+            updatedAt: new Date().toISOString(),
+          }
         : {
             scoreA: newA,
             scoreB: newB,
@@ -160,22 +162,50 @@ export default function AdminScorerPage() {
     }
   };
 
-  // --- NEW: Handle finishing a single set ---
-  const handleFinishSet = () => {
-    if (scoreA > scoreB) setSetsWonA((prev) => prev + 1);
-    else if (scoreB > scoreA) setSetsWonB((prev) => prev + 1);
-    else return alert("Tie scores cannot end a set.");
+  const handleFinishSet = async () => {
+    if (scoreA === scoreB) return alert("Tie scores cannot end a set.");
 
-    // Reset points for the next set
+    const newSetNum = completedSets.length + 1;
+    const updatedSets = [...completedSets, { set: newSetNum, scoreA, scoreB }];
+
+    let newSetsA = setsWonA;
+    let newSetsB = setsWonB;
+    if (scoreA > scoreB) newSetsA += 1;
+    else newSetsB += 1;
+
+    setSetsWonA(newSetsA);
+    setSetsWonB(newSetsB);
+    setCompletedSets(updatedSets);
     setScoreA(0);
     setScoreB(0);
+
+    // Sync set completion to Firebase immediately so public view updates
+    try {
+      await updateDoc(
+        doc(
+          db,
+          "tournaments",
+          activeTournament.id,
+          "matches",
+          selectedMatch.id,
+        ),
+        {
+          scoreA: newSetsA,
+          scoreB: newSetsB,
+          sets: updatedSets,
+          status: "in_progress",
+          updatedAt: new Date().toISOString(),
+        },
+      );
+    } catch (err) {
+      console.error("Error saving set:", err);
+    }
   };
 
   const handleEndMatch = async () => {
     setIsSaving(true);
 
     try {
-      // If Best of 3, the final score saved to DB represents SETS WON, not points.
       const finalScoreA = isBestOfThree ? setsWonA : scoreA;
       const finalScoreB = isBestOfThree ? setsWonB : scoreB;
 
@@ -190,6 +220,10 @@ export default function AdminScorerPage() {
         {
           scoreA: finalScoreA,
           scoreB: finalScoreB,
+          sets:
+            completedSets.length > 0
+              ? completedSets
+              : [{ set: 1, scoreA: finalScoreA, scoreB: finalScoreB }],
           status: "completed",
           completedAt: new Date().toISOString(),
         },
@@ -225,9 +259,6 @@ export default function AdminScorerPage() {
     if (status === "completed" || status === "done" || status === "finished")
       return false;
     if (stage.includes("import") || stage.includes("historical")) return false;
-
-    const hasWinningScore = m.scoreA >= 15 || m.scoreB >= 15;
-    if (hasWinningScore && status !== "in_progress") return false;
 
     return true;
   });
@@ -303,14 +334,13 @@ export default function AdminScorerPage() {
       <div
         className={`p-4 md:p-6 flex flex-col items-center flex-1 ${bgClass} relative`}
       >
-        {/* SET TRACKER PILL */}
         {isBestOfThree && (
           <div className="absolute top-4 right-4 bg-gray-900 text-white text-[10px] font-black uppercase px-2 py-1 rounded flex items-center gap-1">
             <Trophy
               size={10}
               className={setsWon > 0 ? "text-yellow-400" : "text-gray-500"}
             />
-            Sets: {setsWon}
+            Sets Won: {setsWon}
           </div>
         )}
 
@@ -461,6 +491,21 @@ export default function AdminScorerPage() {
                 </div>
               </div>
 
+              {/* Completed Sets History Ribbon */}
+              {completedSets.length > 0 && (
+                <div className="bg-purple-50 border-b border-purple-100 px-4 py-2 flex items-center gap-3 text-xs font-bold text-purple-900">
+                  <span>Completed Sets:</span>
+                  {completedSets.map((s) => (
+                    <span
+                      key={s.set}
+                      className="bg-white px-2 py-0.5 rounded border border-purple-200 shadow-sm"
+                    >
+                      Set {s.set}: {s.scoreA} - {s.scoreB}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <div className="flex divide-x divide-gray-200">
                 {isSwapped
                   ? renderTeamPanel("B", true)
@@ -468,40 +513,6 @@ export default function AdminScorerPage() {
                 {isSwapped
                   ? renderTeamPanel("A", false)
                   : renderTeamPanel("B", false)}
-              </div>
-
-              {(scoreA >= winningScore - 1 || scoreB >= winningScore - 1) && (
-                <div className="bg-yellow-50 text-yellow-800 p-3 text-center text-sm font-bold flex items-center justify-center gap-2 border-t border-yellow-200 animate-pulse">
-                  <AlertCircle size={18} />{" "}
-                  {isBestOfThree ? "Set Point!" : "Match Point!"}
-                </div>
-              )}
-
-              <div className="bg-indigo-50 border-t border-indigo-100 p-3 text-center text-xs md:text-sm font-bold text-indigo-900 flex flex-col md:flex-row items-center justify-center gap-2">
-                <span className="bg-indigo-600 text-white text-[10px] uppercase px-2 py-0.5 rounded tracking-wider">
-                  Server Note
-                </span>
-                <span>
-                  {(() => {
-                    const totalPoints = scoreA + scoreB;
-                    const servingTeamIsA = totalPoints % 2 === 0;
-                    const servingTeamScore = servingTeamIsA ? scoreA : scoreB;
-                    const serviceSide =
-                      servingTeamScore % 2 === 0
-                        ? "RIGHT (Even) Side ➔"
-                        : "← LEFT (Odd) Side";
-
-                    const teamNames = servingTeamIsA
-                      ? selectedMatch.teamA
-                          .map((id) => getPlayerDisplay(id))
-                          .join(" & ")
-                      : selectedMatch.teamB
-                          .map((id) => getPlayerDisplay(id))
-                          .join(" & ");
-
-                    return `Serving Team: ${teamNames} | Serve from the ${serviceSide}`;
-                  })()}
-                </span>
               </div>
 
               <div className="bg-gray-800 p-4 flex justify-between items-center flex-wrap gap-4">
